@@ -1,0 +1,5 @@
+Note 1 Information: Max data length bin: 85  < max pop len bins: 94; so will accumulate larger pop len bins
+Warning 1 : Forecast=0 or -1, so rest of forecast file will not be read and can be omitted;
+Warning 2 : Main recdev biasadj is >2 times ratio of rmse to sigmaR
+Note 2 Information:  N parameters that are on or within 1% of min-max bound: 1; check results, variance may be suspect
+ 2 warnings  and 2 notes 
