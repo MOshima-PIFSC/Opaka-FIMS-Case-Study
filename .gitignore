@@ -16,7 +16,7 @@
 !.radian_profile
 # Don't ignore input data files
 !*.csv
-
+*plotInfoTable*.csv
 # Don't ignore executables
 !Exe/*
 !*.exe

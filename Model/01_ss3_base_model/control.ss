@@ -4,9 +4,9 @@
 #
 0 # 0 means do not read wtatage.ss; 1 means read and usewtatage.ss and also read and use growth parameters
 1 #_N_Growth_Patterns
-3 #_N_platoons_Within_GrowthPattern
-0.7 #_Morph_between/within_stdev_ratio
--1 0 0 # vector_Morphdist_(-1_in_first_val_gives_normal_approx)
+1 #_N_platoons_Within_GrowthPattern
+#0.7 #_Morph_between/within_stdev_ratio
+#-1 0 0 # vector_Morphdist_(-1_in_first_val_gives_normal_approx)
 4 # recr_dist_method for parameters
 1 # not yet implemented; Future usage:Spawner-Recruitment; 1=global; 2=by area
 1 # number of recruitment settlement assignments 
