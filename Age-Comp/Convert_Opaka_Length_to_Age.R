@@ -12,12 +12,12 @@
 # Set opaka growth parameters for a SS3 parameterization of VB curve
 # Length(age) = Linf + (Lmin - Linf)*exp(-k*(age-Amin))
 Amin <- 1
-Amax <- 45
+Amax <- 21 #accumulating ages after 21 because the growth curve is so flat
 Lmin <- 18.1001396
 Linf <- 67.5
 k <- 0.242
-CVmin <- 0.12
-CVmax <- 0.08
+CVmin <- 0.085
+CVmax <- 0.085
 
 # Set opaka length-weight parameters (cm, kg)
 A <- 1.75E-05
@@ -77,7 +77,7 @@ for (length in 1:NLengthBin)
 }
 
 # Read SS3 length frequency data from Opaka_len_data.csv
-Opaka_len_data <- read.csv("Opaka_len_data.csv",header=TRUE)
+Opaka_len_data <- read.csv("Data/Opaka_len_data.csv",header=TRUE)
 LengthComposition <- as.matrix(Opaka_len_data[,7:23])
 NSample <- length(LengthComposition[,1])
 
@@ -94,7 +94,8 @@ AgeCompositionData <- array(rep(0.0,DimAgeCompositionData),c(NSample,NAgeDataCol
 colnames(AgeCompositionData) <- c(colnames(Opaka_len_data[1:NSampleColumn]),paste0("Age-",seq(0,Amax,1)))
 AgeCompositionData[1:NSample,(NSampleColumn+1):NAgeDataColumn] <- AgeComposition
 AgeCompositionData[1:NSample,1:NSampleColumn] <- as.matrix(Opaka_len_data[1:NSample,1:NSampleColumn])
-write.csv(AgeCompositionData, file = "Prelim_Opaka_age_data.csv", row.names = FALSE)
+AgeCompositionData[,7:ncol(AgeCompositionData)] <- round(AgeCompositionData[,7:ncol(AgeCompositionData)],0)
+write.csv(AgeCompositionData, file = "Data/Prelim_Opaka_age_data.csv", row.names = FALSE)
 
 # Le Fin: Sans Souci
 

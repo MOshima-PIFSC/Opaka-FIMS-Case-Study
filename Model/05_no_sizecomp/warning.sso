@@ -1,0 +1,3 @@
+Warning 1 : Forecast=0 or -1, so rest of forecast file will not be read and can be omitted;
+Warning 2 : bias adjustment ramp extends into forecast; biasadj set to 0.0 internally for forecast years
+ 2 warnings 
