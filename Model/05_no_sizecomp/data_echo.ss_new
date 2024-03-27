@@ -4,7 +4,7 @@
 #_User_support_available_at:NMFS.Stock.Synthesis@noaa.gov
 #_User_info_available_at:https://vlab.noaa.gov/group/stock-synthesis
 #_Source_code_at:_https://github.com/nmfs-stock-synthesis/stock-synthesis
-#_Start_time: Fri Mar 22 11:27:53 2024
+#_Start_time: Tue Mar 26 10:05:09 2024
 #_echo_input_data
 #C data file for APVI
 #V3.30.21.00;_fast(opt);_compile_date:_Feb 10 2023;_Stock_Synthesis_by_Richard_Methot_(NOAA)_using_ADMB_13.1
@@ -40,7 +40,7 @@
 #_Catch data: yr, seas, fleet, catch, catch_se
 #_catch_se:  standard error of log(catch)
 #_NOTE:  catch data is ignored for survey fleets
--999 1 1 50.7819 0.01
+-999 1 1 0 0.01
 1949 1 1 50.7819 0.01
 1950 1 1 51.5104 0.01
 1951 1 1 56.4069 0.01
