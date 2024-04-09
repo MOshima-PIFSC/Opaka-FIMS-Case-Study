@@ -6,11 +6,12 @@
 #' @param dat The `dat` element of the list created by `r4ss::SS_read()` or the 
 #' output from running `r4ss::SS_readdat()` directly.
 #' @param fleets Which fleets to include in the processed output.
+#' @param ages Which ages to include in the processed output.
 #' @return A data frame that can be passed to `FIMS::FIMSFrameAge()`
 #' @author Ian G. Taylor
 #' @export
 
-get_ss3_data <- function(dat, fleets) {
+get_ss3_data <- function(dat, fleets, ages) {
   # create empty data frame
   res <- data.frame(
     type = character(),
@@ -28,6 +29,7 @@ get_ss3_data <- function(dat, fleets) {
 
   # aggregate landings across fleets
   catch_by_year <- dat$catch |>
+    dplyr::filter(fleet %in% fleets) |> 
     dplyr::group_by(year) |>
     dplyr::summarize(catch = sum(catch), uncertainty = mean(catch_se))
 
@@ -100,7 +102,7 @@ get_ss3_data <- function(dat, fleets) {
 
   # further processing
   age_info <-
-    dat$agecomp |>
+    ss3dat$agecomp |>
     # specific to petrale:
     # fleet 4 used conditional age-at-length data with marginal observations
     # entered as fleet == -4 (to exclude from likelihood due to redundancy)
