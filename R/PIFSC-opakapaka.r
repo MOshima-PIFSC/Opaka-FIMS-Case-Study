@@ -4,11 +4,12 @@
 library(dplyr)
 library(tidyr)
 library(ggplot2)
-remotes::install_github("NOAA-FIMS/FIMS")
+#remotes::install_github("NOAA-FIMS/FIMS")
+#install.packages("FIMS", repos = c("https://noaa-fims.r-universe.dev", "https://cran.r-project.org"))
 library(FIMS)
 library(TMB)
 #devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")
-library(TMBhelper)
+#library(TMBhelper)
 #remotes::install_github("r4ss/r4ss")
 library(r4ss)
 
@@ -100,7 +101,7 @@ estimate_init_naa <- FALSE
 estimate_log_rzero <- TRUE
 estimate_random_effect <- FALSE
 
-methods::show(LogisticSelectivity)
+#methods::show(LogisticSelectivity)
 #estimating logistic selectivity for fishery
 fishing_fleet_selectivity <- methods::new(LogisticSelectivity)
 fishing_fleet_selectivity$inflection_point$value <- 2.0 #starting value
@@ -125,10 +126,10 @@ fishing_fleet$log_q <- log(1.0)
 fishing_fleet$estimate_q <- estimate_q
 fishing_fleet$random_q <- estimate_random_effect
 fishing_fleet$log_obs_error <- rep(log(sqrt(log(0.01^2 + 1))), nyears)
-fishing_fleet$estimate_obs_error <- FALSE
+#fishing_fleet$estimate_obs_error <- FALSE
 # Set Index, AgeComp, and Selectivity using the IDs from the modules defined above
 fishing_fleet$SetObservedIndexData(fishing_fleet_index$get_id())
-#fishing_fleet$SetObservedAgeCompData(fishing_fleet_age_comp$get_id())
+fishing_fleet$SetObservedAgeCompData(fishing_fleet_age_comp$get_id())
 fishing_fleet$SetSelectivity(fishing_fleet_selectivity$get_id())
 
 ## Survey Module
@@ -168,8 +169,11 @@ survey_fleet$log_q <- log(2.94455e-07)
 survey_fleet$estimate_q <- TRUE
 survey_fleet$random_q <- FALSE
 # sd = sqrt(log(cv^2 + 1)), sd is log transformed
-survey_fleet$log_obs_error <- rep(log(sqrt(log(0.2^2 + 1))), nyears)
-survey_fleet$estimate_obs_error <- FALSE
+survey_fleet$log_obs_error <- age_frame@data |>
+  dplyr::filter(type == "index" & name == "fleet2") |>
+  dplyr::pull(uncertainty) |>
+  log()
+#survey_fleet$estimate_obs_error <- FALSE
 survey_fleet$SetAgeCompLikelihood(1)
 survey_fleet$SetIndexLikelihood(1)
 survey_fleet$SetSelectivity(survey_fleet_selectivity$get_id())
@@ -202,12 +206,17 @@ ewaa_growth$ages <- ages
 #   dplyr::select(paste(0:40)) |>
 #   round(4)
 
-weights <- ss3rep$wtatage |> 
-dplyr::filter(Sex == 1 & Fleet == 1 & Yr == 1949) |> 
-dplyr::select(paste(1:21)) |> 
-round(4)
+# weights <- ss3rep$wtatage |> 
+# dplyr::filter(Sex == 1 & Fleet == 1 & Yr == 1949) |> 
+# dplyr::select(paste(1:21)) |> 
+# round(4)
 
-ewaa_growth$weights <- unlist(weights)
+# ewaa_growth$weights <- unlist(weights)
+ewaa_growth$weights <- c(0.3814, 
+0.8472, 1.2541, 1.7741, 2.3158, 2.8184, 3.2614, 
+3.6402, 3.9573, 4.2188, 4.432, 4.6043, 4.7426, 
+4.8531, 4.941, 5.0108, 5.0661, 5.1097, 5.1442, 
+5.1713, 5.1927)
 
 # maturity
 maturity <- new(LogisticMaturity)
@@ -244,3 +253,18 @@ population$SetRecruitment(recruitment$get_id())
 
 ## Create FIMS Model and Make TMB Function
 success <- CreateTMBModel()
+parameters <- list(p = get_fixed())
+obj <- MakeADFun(data = list(), parameters, DLL = "FIMS", silent = TRUE)
+opt <- nlminb(obj$par, obj$fn, obj$gr, control = list(eval.max = 10000, iter.max = 10000))
+
+print(opt)
+report <- obj$report()
+head(report$ssb)
+plot(x = years, y = report$ssb[[1]][1:7])
+
+plot(x = years, y = ss3dat$catch$catch, pch = 16)
+lines(x = years, y = report$exp_catch[[1]], col = "blue")
+
+plot(x = c(years, max(years) + 1), y = report$ssb[[1]], type = "l")
+report$exp_index
+ss3dat$CPUE
