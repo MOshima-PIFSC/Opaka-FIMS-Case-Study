@@ -22,7 +22,7 @@ ss_dir <- file.path(getwd(), "Model", "06_no_missing_data")
 ## Read in SS input files
 ss3dat <- r4ss::SS_readdat_3.30(file = file.path(ss_dir, "data.ss"))
 ss3ctl <- r4ss::SS_readctl_3.30(file = file.path(ss_dir, "control.ss"), datlist = file.path(ss_dir, "data.ss"))
-ss3rep <- r4ss::SS_output(dir = file.path(getwd(), "Model", "05_no_sizecomp"))
+ss3rep <- r4ss::SS_output(dir = ss_dir)
 ## Function written by Ian Taylor to get SS3 data into FIMSframeAge format
 source("./R/get_ss3_data.r")
 
