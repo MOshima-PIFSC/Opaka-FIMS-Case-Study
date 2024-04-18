@@ -4,25 +4,27 @@
 library(dplyr)
 library(tidyr)
 library(ggplot2)
-require(FIMS)
+remotes::install_github("NOAA-FIMS/FIMS")
+library(FIMS)
 library(TMB)
-# devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")
+#devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")
 library(TMBhelper)
-# remotes::install_github("r4ss/r4ss")
-require(r4ss)
+#remotes::install_github("r4ss/r4ss")
+library(r4ss)
 
 ## Version documentation
-R_version <- version$version.string
-TMB_version <- packageDescription("TMB")$Version
-FIMS_commit <- substr(packageDescription("FIMS")$GithubSHA1, 1, 7)
+# R_version <- version$version.string
+# TMB_version <- packageDescription("TMB")$Version
+# FIMS_commit <- substr(packageDescription("FIMS")$GithubSHA1, 1, 7)
 
 ## Model path
-ss_dir <- file.path(getwd(), "Model", "06_no_missing_data")
+#ss_dir <- file.path(getwd(), "Model", "06_no_missing_data")
+ss_dir <- file.path(getwd(), "Model", "07_subset_yrs")
 
 ## Read in SS input files
 ss3dat <- r4ss::SS_readdat_3.30(file = file.path(ss_dir, "data.ss"))
 ss3ctl <- r4ss::SS_readctl_3.30(file = file.path(ss_dir, "control.ss"), datlist = file.path(ss_dir, "data.ss"))
-ss3rep <- r4ss::SS_output(dir = ss_dir)
+#ss3rep <- r4ss::SS_output(dir = ss_dir)
 ## Function written by Ian Taylor to get SS3 data into FIMSframeAge format
 source("./R/get_ss3_data.r")
 
@@ -37,14 +39,14 @@ nages <- length(ages)
 #head(data_mile1)
 ## Use R/get_ss3_data function to get from data.ss to FIMSframeAge
 opaka_dat <- get_ss3_data(ss3dat, fleets = c(1,2), ages = ages) #trying with just one fishery and one survey first
-head(opaka_dat)  #landings get aggregated into one fleet if you have multiple (commercial + non-commercial)
-head(ss3dat$catch)
-opaka_dat |> filter(type == "index") |> tail()
-ss3dat$CPUE |> filter(index == 2)
-opaka_dat |> filter(type == "age") |> filter(datestart >= "2017-01-01") |> filter(name == "fleet2")  |> head()
-head(ss3dat$agecomp)
+# head(opaka_dat)  #landings get aggregated into one fleet if you have multiple (commercial + non-commercial)
+# head(ss3dat$catch)
+# opaka_dat |> filter(type == "index") |> tail()
+# ss3dat$CPUE |> filter(index == 2)
+# opaka_dat |> filter(type == "age") |> filter(datestart >= "2017-01-01") |> filter(name == "fleet2")  |> head()
+# head(ss3dat$agecomp)
 
-str(opaka_dat)
+# str(opaka_dat)
 
 ## Set up FIMS model
 
@@ -55,11 +57,19 @@ age_frame@nages
 head(age_frame@data)
 age_frame@fleets
 
+#plot data components in age_frame
+age_frame@data |> 
+ggplot() +
+geom_line(aes(x = lubridate::year(datestart), y = value, color = name)) + 
+facet_wrap(~type, scales = "free") + 
+theme_bw() +
+labs(x = "Year", y = "")
+
 #fishery data
 fishery_catch <- FIMS::m_landings(age_frame)
 head(fishery_catch)
-
-fishery_index <- FIMS::m_index(age_frame, "fleet1")
+fishery_agecommp <- FIMS::m_agecomp(age_frame, "fleet1")
+#fishery_index <- FIMS::m_index(age_frame, "fleet1")
 
 #survey data
 survey_index <- FIMS::m_index(age_frame, "fleet2")
@@ -68,13 +78,17 @@ survey_agecomp <- FIMS::m_agecomp(age_frame, "fleet2")
 ## Creating modules 
 
 ##Fleet module
-show(Index)
-show(AgeComp)
+# show(Index)
+# show(AgeComp)
 fishing_fleet_index <- methods::new(Index, nyears)
-
+fishing_fleet_age_comp <- methods::new(AgeComp, nyears, nages)
 #Q: Don't understand why we put the fishery catch in the index data? 
 fishing_fleet_index$index_data <- fishery_catch
-
+fishing_fleet_age_comp$age_comp_data <- age_frame@data |>
+  dplyr::filter(type == "age" & name == "fleet1") |>
+  dplyr::mutate(n = value * uncertainty) |>
+  dplyr::pull(n) |>
+  round(1)
 ##Fleet selectivity
 # switches to turn on or off estimation
 estimate_fish_selex <- TRUE
