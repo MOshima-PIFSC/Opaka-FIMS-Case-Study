@@ -12,10 +12,12 @@
 		"ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
 			"packages": "make,gcc,g++,cmake,clang-tidy,clang-format,clang,doxygen,ninja-build,libxtst6,libxt6"			
 		},
-		 "ghcr.io/rocker-org/devcontainer-features/r-packages:1": {
-			"packages": "Matrix,cli,rlang,RcppEigen,TMB,ggplot2,dplyr,scales,covr",
-			 "installSystemRequirements": true
-		  }
+		 //"ghcr.io/rocker-org/devcontainer-features/r-packages:1": {
+		//	"packages": "Matrix,cli,rlang,RcppEigen,TMB,ggplot2,dplyr,scales,covr",
+		//	 "installSystemRequirements": true
+		  //}
+		  //to use Rstudio as IDE instead of VS code
+		 "ghcr.io/rocker-org/devcontainer-features/rstudio-server:0": {}
 		},
 	// // if we want quarto cli
 	     // more info: https://github.com/rocker-org/devcontainer-features/blob/main/src/quarto-cli/README.md
@@ -25,6 +27,9 @@
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 
+	"postAttachCommand": {
+		    "rstudio-start": "rserver"
+		},
 	// Use 'postCreateCommand' to run commands after the container is created.
 	"postCreateCommand": "echo 'options(repos = c(CRAN = \"https://cloud.r-project.org\"))' | sudo sh -c 'cat - >>\"${R_HOME}/etc/Rprofile.site\"'",
 	
