@@ -4,17 +4,19 @@
 library(dplyr)
 library(tidyr)
 library(ggplot2)
-require(FIMS)
+#remotes::install_github("NOAA-FIMS/FIMS")
+#install.packages("FIMS", repos = c("https://noaa-fims.r-universe.dev", "https://cran.r-project.org"))
+library(FIMS)
 library(TMB)
-# devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")
-library(TMBhelper)
-# remotes::install_github("r4ss/r4ss")
-require(r4ss)
+#devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")
+#library(TMBhelper)
+#remotes::install_github("r4ss/r4ss")
+library(r4ss)
 
 ## Version documentation
-R_version <- version$version.string
-TMB_version <- packageDescription("TMB")$Version
-FIMS_commit <- substr(packageDescription("FIMS")$GithubSHA1, 1, 7)
+# R_version <- version$version.string
+# TMB_version <- packageDescription("TMB")$Version
+# FIMS_commit <- substr(packageDescription("FIMS")$GithubSHA1, 1, 7)
 
 ## Model path
 ss_dir <- file.path(getwd(), "Model", "08_simEM")
@@ -38,14 +40,14 @@ nages <- length(ages)
 #head(data_mile1)
 ## Use R/get_ss3_data function to get from data.ss to FIMSframeAge
 opaka_dat <- get_ss3_data(ss3dat, fleets = c(1,2), ages = ages) #trying with just one fishery and one survey first
-head(opaka_dat)  #landings get aggregated into one fleet if you have multiple (commercial + non-commercial)
-head(ss3dat$catch)
-opaka_dat |> filter(type == "index") |> tail()
-ss3dat$CPUE |> filter(index == 2)
-opaka_dat |> filter(type == "age") |> filter(datestart >= "2017-01-01") |> filter(name == "fleet2")  |> head()
-head(ss3dat$agecomp)
+# head(opaka_dat)  #landings get aggregated into one fleet if you have multiple (commercial + non-commercial)
+# head(ss3dat$catch)
+# opaka_dat |> filter(type == "index") |> tail()
+# ss3dat$CPUE |> filter(index == 2)
+# opaka_dat |> filter(type == "age") |> filter(datestart >= "2017-01-01") |> filter(name == "fleet2")  |> head()
+# head(ss3dat$agecomp)
 
-str(opaka_dat)
+# str(opaka_dat)
 
 ##use subset of data for years where BFISH index exists
 #opaka_dat_sub <- opaka_dat |> filter(as.Date(datestart) > as.Date("2016-01-01"))
@@ -75,6 +77,8 @@ fishery_catch <- FIMS::m_landings(age_frame)
 head(fishery_catch)
 fishery_agecommp <- FIMS::m_agecomp(age_frame, "fleet1")
 #fishery_index <- FIMS::m_index(age_frame, "fleet1")
+fishery_agecommp <- FIMS::m_agecomp(age_frame, "fleet1")
+#fishery_index <- FIMS::m_index(age_frame, "fleet1")
 
 #survey data
 survey_index <- FIMS::m_index(age_frame, "fleet2")
@@ -87,8 +91,14 @@ survey_agecomp <- FIMS::m_agecomp(age_frame, "fleet2")
 #show(AgeComp)
 fishing_fleet_index <- methods::new(Index, nyears)
 fishing_fleet_age_comp <- methods::new(AgeComp, nyears, nages)
+fishing_fleet_age_comp <- methods::new(AgeComp, nyears, nages)
 #Q: Don't understand why we put the fishery catch in the index data? 
 fishing_fleet_index$index_data <- fishery_catch
+fishing_fleet_age_comp$age_comp_data <- age_frame@data |>
+  dplyr::filter(type == "age" & name == "fleet1") |>
+  dplyr::mutate(n = value * uncertainty) |>
+  dplyr::pull(n) |>
+  round(1)
 fishing_fleet_age_comp$age_comp_data <- age_frame@data |>
   dplyr::filter(type == "age" & name == "fleet1") |>
   dplyr::mutate(n = value * uncertainty) |>
@@ -105,6 +115,7 @@ estimate_init_naa <- FALSE
 estimate_log_rzero <- TRUE
 estimate_random_effect <- FALSE
 
+#methods::show(LogisticSelectivity)
 #methods::show(LogisticSelectivity)
 #estimating logistic selectivity for fishery
 fishing_fleet_selectivity <- methods::new(LogisticSelectivity)
@@ -131,8 +142,10 @@ fishing_fleet$estimate_q <- estimate_q
 fishing_fleet$random_q <- estimate_random_effect
 fishing_fleet$log_obs_error <- rep(log(sqrt(log(0.01^2 + 1))), nyears)
 #fishing_fleet$estimate_obs_error <- FALSE
+#fishing_fleet$estimate_obs_error <- FALSE
 # Set Index, AgeComp, and Selectivity using the IDs from the modules defined above
 fishing_fleet$SetObservedIndexData(fishing_fleet_index$get_id())
+fishing_fleet$SetObservedAgeCompData(fishing_fleet_age_comp$get_id())
 fishing_fleet$SetObservedAgeCompData(fishing_fleet_age_comp$get_id())
 fishing_fleet$SetSelectivity(fishing_fleet_selectivity$get_id())
 
@@ -173,6 +186,11 @@ survey_fleet$log_q <- log(2.94455e-07)
 survey_fleet$estimate_q <- TRUE
 survey_fleet$random_q <- FALSE
 # sd = sqrt(log(cv^2 + 1)), sd is log transformed
+survey_fleet$log_obs_error <- age_frame@data |>
+  dplyr::filter(type == "index" & name == "fleet2") |>
+  dplyr::pull(uncertainty) |>
+  log()
+#survey_fleet$estimate_obs_error <- FALSE
 survey_fleet$log_obs_error <- age_frame@data |>
   dplyr::filter(type == "index" & name == "fleet2") |>
   dplyr::pull(uncertainty) |>
