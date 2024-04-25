@@ -17,12 +17,13 @@ TMB_version <- packageDescription("TMB")$Version
 FIMS_commit <- substr(packageDescription("FIMS")$GithubSHA1, 1, 7)
 
 ## Model path
-ss_dir <- file.path(getwd(), "Model", "06_no_missing_data")
+ss_dir <- file.path(getwd(), "Model", "08_simEM")
 
 ## Read in SS input files
-ss3dat <- r4ss::SS_readdat_3.30(file = file.path(ss_dir, "data.ss"))
-ss3ctl <- r4ss::SS_readctl_3.30(file = file.path(ss_dir, "control.ss"), datlist = file.path(ss_dir, "data.ss"))
+ss3dat <- r4ss::SS_readdat_3.30(file = file.path(ss_dir, "ss3.dat"))
+ss3ctl <- r4ss::SS_readctl_3.30(file = file.path(ss_dir, "em.ctl"), datlist = file.path(ss_dir, "ss3.dat"))
 ss3rep <- r4ss::SS_output(dir = ss_dir)
+#save(list = c("ss3dat", "ss3ctl", "ss3rep"), file = file.path(getwd(), "Model", "08_simEM", "opaka_model2.RDS"))
 ## Function written by Ian Taylor to get SS3 data into FIMSframeAge format
 source("./R/get_ss3_data.r")
 
@@ -46,6 +47,9 @@ head(ss3dat$agecomp)
 
 str(opaka_dat)
 
+##use subset of data for years where BFISH index exists
+#opaka_dat_sub <- opaka_dat |> filter(as.Date(datestart) > as.Date("2016-01-01"))
+#nyears <- length(unique(opaka_dat_sub$datestart))
 ## Set up FIMS model
 
 #age data
@@ -53,13 +57,24 @@ age_frame <- FIMS::FIMSFrameAge(opaka_dat)
 age_frame@ages
 age_frame@nages
 head(age_frame@data)
+tail(age_frame@data)
 age_frame@fleets
+age_frame@start_year
+age_frame@end_year #not sure why this is saying 9 when other components are correct
+
+#plot data components in age_frame
+age_frame@data |> 
+ggplot() +
+geom_line(aes(x = lubridate::year(datestart), y = value, color = name)) + 
+facet_wrap(~type, scales = "free") + 
+theme_bw() +
+labs(x = "Year", y = "")
 
 #fishery data
 fishery_catch <- FIMS::m_landings(age_frame)
 head(fishery_catch)
-
-fishery_index <- FIMS::m_index(age_frame, "fleet1")
+fishery_agecommp <- FIMS::m_agecomp(age_frame, "fleet1")
+#fishery_index <- FIMS::m_index(age_frame, "fleet1")
 
 #survey data
 survey_index <- FIMS::m_index(age_frame, "fleet2")
@@ -68,25 +83,29 @@ survey_agecomp <- FIMS::m_agecomp(age_frame, "fleet2")
 ## Creating modules 
 
 ##Fleet module
-show(Index)
-show(AgeComp)
+#show(Index)
+#show(AgeComp)
 fishing_fleet_index <- methods::new(Index, nyears)
-
+fishing_fleet_age_comp <- methods::new(AgeComp, nyears, nages)
 #Q: Don't understand why we put the fishery catch in the index data? 
 fishing_fleet_index$index_data <- fishery_catch
-
+fishing_fleet_age_comp$age_comp_data <- age_frame@data |>
+  dplyr::filter(type == "age" & name == "fleet1") |>
+  dplyr::mutate(n = value * uncertainty) |>
+  dplyr::pull(n) |>
+  round(1)
 ##Fleet selectivity
 # switches to turn on or off estimation
 estimate_fish_selex <- TRUE
 estimate_survey_selex <- TRUE
 estimate_q <- TRUE
 estimate_F <- TRUE
-estimate_recdevs <- FALSE
+estimate_recdevs <- TRUE
 estimate_init_naa <- FALSE
 estimate_log_rzero <- TRUE
 estimate_random_effect <- FALSE
 
-methods::show(LogisticSelectivity)
+#methods::show(LogisticSelectivity)
 #estimating logistic selectivity for fishery
 fishing_fleet_selectivity <- methods::new(LogisticSelectivity)
 fishing_fleet_selectivity$inflection_point$value <- 2.0 #starting value
@@ -107,14 +126,14 @@ fishing_fleet$log_Fmort <- log(rep(0.00001, nyears))
 fishing_fleet$estimate_F <- estimate_F
 fishing_fleet$random_F <- estimate_random_effect
 # Set value for log_q
-fishing_fleet$log_q <- log(1.0)
+fishing_fleet$log_q <- 0
 fishing_fleet$estimate_q <- estimate_q
 fishing_fleet$random_q <- estimate_random_effect
 fishing_fleet$log_obs_error <- rep(log(sqrt(log(0.01^2 + 1))), nyears)
-fishing_fleet$estimate_obs_error <- FALSE
+#fishing_fleet$estimate_obs_error <- FALSE
 # Set Index, AgeComp, and Selectivity using the IDs from the modules defined above
 fishing_fleet$SetObservedIndexData(fishing_fleet_index$get_id())
-#fishing_fleet$SetObservedAgeCompData(fishing_fleet_age_comp$get_id())
+fishing_fleet$SetObservedAgeCompData(fishing_fleet_age_comp$get_id())
 fishing_fleet$SetSelectivity(fishing_fleet_selectivity$get_id())
 
 ## Survey Module
@@ -154,8 +173,11 @@ survey_fleet$log_q <- log(2.94455e-07)
 survey_fleet$estimate_q <- TRUE
 survey_fleet$random_q <- FALSE
 # sd = sqrt(log(cv^2 + 1)), sd is log transformed
-survey_fleet$log_obs_error <- rep(log(sqrt(log(0.2^2 + 1))), nyears)
-survey_fleet$estimate_obs_error <- FALSE
+survey_fleet$log_obs_error <- age_frame@data |>
+  dplyr::filter(type == "index" & name == "fleet2") |>
+  dplyr::pull(uncertainty) |>
+  log()
+#survey_fleet$estimate_obs_error <- FALSE
 survey_fleet$SetAgeCompLikelihood(1)
 survey_fleet$SetIndexLikelihood(1)
 survey_fleet$SetSelectivity(survey_fleet_selectivity$get_id())
@@ -182,19 +204,14 @@ recruitment$log_devs <- rep(0, nyears) #set to no deviations to start, then try 
 #Growth
 ewaa_growth <- methods::new(EWAAgrowth)
 ewaa_growth$ages <- ages
-# NOTE: getting weight-at-age vector from
-# petrale_output$wtatage |>
-#   dplyr::filter(Sex == 1 & Fleet == -1 & Yr == 1876) |>
-#   dplyr::select(paste(0:40)) |>
-#   round(4)
 
-weights <- ss3rep$wtatage |> 
-dplyr::filter(Sex == 1 & Fleet == 1 & Yr == 1949) |> 
-dplyr::select(paste(1:21)) |> 
-round(4)
+#weights <- ss3rep$wtatage |> 
+#dplyr::filter(Sex == 1 & Fleet == 1 & Yr == 1949) |> 
+#dplyr::select(paste(1:21)) |> 
+#round(4)
+#ewaa_growth$weights <- unlist(weights)
 
-ewaa_growth$weights <- unlist(weights)
-
+ewaa_growth$weights <- c(0.041, 0.2942, 0.7766, 1.235, 1.7445, 2.2816, 2.7782, 3.2152, 3.5887, 3.9014, 4.1592, 4.3694, 4.5392, 4.6756, 4.7846, 4.8713, 4.9401, 4.9945, 5.0376, 5.0715, 5.0983)
 # maturity
 maturity <- new(LogisticMaturity)
 # approximate age-based equivalent to length-based maturity in petrale model
@@ -219,8 +236,8 @@ population$log_init_naa <- log(init_naa)
 population$estimate_init_naa <- estimate_init_naa
 population$nages <- nages
 population$ages <- ages
-population$nfleets <- 2 # fleets plus surveys
-population$nseasons <- nseasons
+population$nfleets <- 2 # fleet plus surveys
+population$nseasons <- 1
 population$nyears <- nyears
 # population$proportion_female <- rep(0.5, nages)
 
@@ -230,3 +247,5 @@ population$SetRecruitment(recruitment$get_id())
 
 ## Create FIMS Model and Make TMB Function
 success <- CreateTMBModel()
+parameters <- list(p = get_fixed())
+obj <- MakeADFun(data = list(), parameters, DLL = "FIMS", silent = TRUE)
