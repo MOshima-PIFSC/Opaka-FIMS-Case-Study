@@ -1,0 +1,4 @@
+1 NOTE:  Max data length bin: 85  < max pop len bins: 94; so will accumulate larger pop len bins
+2 Forecast=0 or -1, so rest of forecast file will not be read and can be omitted;
+3 NOTE: This model has just one settlement event. Changing to recr_dist_method 4 and removing the recruitment distribution parameters at the end of the MG parms section (below growth parameters) will produce identical results and simplify the model.
+N warnings: 3
